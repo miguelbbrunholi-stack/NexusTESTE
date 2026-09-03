@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -8,7 +9,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./nexus-dev.db"
     environment: str = "development"
     cors_origins: list[str] = ["http://localhost:8081", "http://127.0.0.1:8081"]
-    storage_dir: Path = Path("storage")
+    # Vercel only provides writable temporary storage under /tmp.
+    storage_dir: Path = Path(os.getenv("VERCEL_STORAGE_DIR", "/tmp/nexus-storage" if os.getenv("VERCEL") else "storage"))
     time_zone: str = "America/Sao_Paulo"
     session_days: int = 7
     smtp_host: str = ""

@@ -41,10 +41,17 @@ export async function api(path, {
       body: body ? form ? body : JSON.stringify(body) : undefined
     });
     if (response.status === 204) return null;
-    const data = await response.json();
+    const contentType = response.headers.get('content-type') || '';
+    const data = contentType.includes('application/json')
+      ? await response.json()
+      : await response.text();
     if (!response.ok) {
       if (response.status === 401 && token) unauthorized();
-      const message = Array.isArray(data.detail) ? data.detail.map(item => `${item.loc?.at(-1) || 'Campo'}: ${item.msg}`).join('\n') : data.detail || 'Não foi possível concluir a operação.';
+      const message = typeof data === 'string'
+        ? data || `Erro HTTP ${response.status}`
+        : Array.isArray(data.detail)
+          ? data.detail.map(item => `${item.loc?.at(-1) || 'Campo'}: ${item.msg}`).join('\n')
+          : data.detail || `Erro HTTP ${response.status}`;
       const error = new Error(message);
       error.status = response.status;
       throw error;
