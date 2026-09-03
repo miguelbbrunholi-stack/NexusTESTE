@@ -3,7 +3,8 @@ import Constants from 'expo-constants';
 const metroHost = Constants.expoConfig?.hostUri?.split(':')[0];
 const webHost = typeof window !== 'undefined' ? window.location.hostname : null;
 const host = Platform.OS === 'web' ? webHost || 'localhost' : metroHost || 'localhost';
-export const API_URL = (process.env.EXPO_PUBLIC_API_URL || `http://${host}:8000/api/v1`).replace(/\/$/, '');
+const defaultApiUrl = Platform.OS === 'web' && typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : `http://${host}:8000/api/v1`;
+export const API_URL = (process.env.EXPO_PUBLIC_API_URL || defaultApiUrl).replace(/\/$/, '');
 let token = null;
 let unauthorized = () => {};
 export function setToken(value) {
