@@ -120,8 +120,9 @@ def forgot(data: S.Forgot, request: Request, conn=Conn):
         .mappings()
         .first()
     )
+    development_code = None
     if user:
-        code = secrets.token_hex(24)
+        code = f"{secrets.randbelow(1_000_000):06d}"
         conn.execute(
             recuperacoes_senha.update()
             .where(recuperacoes_senha.c.id_usuario == uid(user))
@@ -138,9 +139,18 @@ def forgot(data: S.Forgot, request: Request, conn=Conn):
             sec.send_recovery(user["email"], code)
         except (OSError, RuntimeError):
             raise HTTPException(503, "Não foi possível enviar a recuperação.") from None
-    return {
-        "mensagem": "Se o email estiver cadastrado, você receberá as instruções de recuperação."
+        if settings.environment == "development" and not settings.smtp_host:
+            development_code = code
+
+    result = {
+        "mensagem": "Se o email estiver cadastrado, você receberá o código de recuperação."
     }
+    if development_code:
+        result["codigo_desenvolvimento"] = development_code
+        result["mensagem"] = (
+            "SMTP não configurado. Para teste local, use o código exibido abaixo."
+        )
+    return result
 
 
 def recovery(conn, data, lock=False):
