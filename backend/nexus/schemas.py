@@ -55,7 +55,7 @@ class Forgot(Input):
 
 
 class Recovery(Forgot):
-    codigo: str = Field(min_length=16, max_length=128)
+    codigo: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
 
 
 class Reset(Recovery):
