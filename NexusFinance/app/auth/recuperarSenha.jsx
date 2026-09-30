@@ -15,16 +15,33 @@ export default function RecuperarSenha() {
   const [codigo, setCodigo] = useState("");
   const enviarCodigo = async () => {
     if (busy) return;
+
+    const emailLimpo = email.trim().toLowerCase();
+
+    if (!emailLimpo) {
+      setMessage('Digite seu e-mail.');
+      return;
+    }
+
     setBusy(true);
     setMessage('');
+
     try {
       const result = await api('/auth/recuperar-senha', {
         method: 'POST',
         body: {
-          email
+          email: emailLimpo
         }
       });
-      setMessage(result.mensagem);
+
+      setEmail(emailLimpo);
+
+      if (result.codigo_desenvolvimento) {
+        setCodigo(result.codigo_desenvolvimento);
+        setMessage(`${result.mensagem} Código: ${result.codigo_desenvolvimento}`);
+      } else {
+        setMessage(result.mensagem);
+      }
     } catch (e) {
       setMessage(e.message);
     } finally {
@@ -33,19 +50,34 @@ export default function RecuperarSenha() {
   };
   const verificarCodigo = async () => {
     if (busy) return;
+
+    const emailLimpo = email.trim().toLowerCase();
+    const codigoLimpo = codigo.replace(/\D/g, '');
+
+    if (!emailLimpo) {
+      setMessage('Digite seu e-mail.');
+      return;
+    }
+
+    if (codigoLimpo.length !== 6) {
+      setMessage('Digite o código de 6 dígitos.');
+      return;
+    }
+
     setBusy(true);
     setMessage('');
+
     try {
       await api('/auth/verificar-codigo', {
         method: 'POST',
         body: {
-          email,
-          codigo
+          email: emailLimpo,
+          codigo: codigoLimpo
         }
       });
       session.setRecovery({
-        email,
-        codigo
+        email: emailLimpo,
+        codigo: codigoLimpo
       });
       router.push('/auth/novaSenha');
     } catch (e) {
@@ -71,7 +103,15 @@ export default function RecuperarSenha() {
         </TouchableOpacity>
         </View>
 
-        <TextInput style={styles.input} placeholder="Digite o código" placeholderTextColor="#999" autoCapitalize="none" autoCorrect={false} value={codigo} onChangeText={setCodigo} />
+        <TextInput
+          style={styles.input}
+          placeholder="Digite o código de 6 dígitos"
+          placeholderTextColor="#999"
+          keyboardType="number-pad"
+          maxLength={6}
+          value={codigo}
+          onChangeText={text => setCodigo(text.replace(/\D/g, '').slice(0, 6))}
+        />
 
         <TouchableOpacity style={styles.button} disabled={busy} onPress={verificarCodigo}>
           <Text style={styles.buttonText}>Continuar</Text>
