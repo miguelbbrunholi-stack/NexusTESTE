@@ -6,6 +6,7 @@ import { autenticar, RequisicaoAutenticada, criarToken } from "../middlewares/au
 import { bancoDados } from "../bancoDados/bancoDados";
 import { enviarCodigoRecuperacao } from '../servicos/email';
 import { dataNascimentoValida, emailValido, normalizarData, normalizarEmail, erroSenha } from "../utilitarios/validacoes";
+import { fotoComoUri } from '../servicos/fotoPerfil';
 import { configuracao } from '../config/configuracao';
 interface UserRow extends RowDataPacket {
   id_usuario: number;
@@ -13,6 +14,7 @@ interface UserRow extends RowDataPacket {
   email: string;
   data_nascimento: string | null;
   senha_hash: string;
+  foto_perfil_binaria: Buffer | null;
   ativo: number;
 }
 interface RecoveryRow extends RowDataPacket {
@@ -91,7 +93,7 @@ rotasAutenticacao.post('/login', async (requisicao, resposta, proximo) => {
         mensagem: 'Informe e-mail e senha válidos.'
       });
     }
-    const [usuarios] = await bancoDados.query<UserRow[]>('SELECT id_usuario, nome, email, senha_hash, ativo FROM usuarios WHERE email = ? LIMIT 1', [email]);
+    const [usuarios] = await bancoDados.query<UserRow[]>('SELECT id_usuario, nome, email, senha_hash, ativo, foto_perfil_binaria FROM usuarios WHERE email = ? LIMIT 1', [email]);
     const usuario = usuarios[0];
     if (!usuario || !usuario.ativo || !(await bcrypt.compare(senha, usuario.senha_hash))) {
       return resposta.status(401).json({
@@ -104,7 +106,8 @@ rotasAutenticacao.post('/login', async (requisicao, resposta, proximo) => {
       usuario: {
         id: usuario.id_usuario,
         nome: usuario.nome,
-        email: usuario.email
+        email: usuario.email,
+        fotoPerfil: fotoComoUri(usuario.foto_perfil_binaria)
       }
     });
   } catch (falha) {
@@ -113,7 +116,7 @@ rotasAutenticacao.post('/login', async (requisicao, resposta, proximo) => {
 });
 rotasAutenticacao.get('/sessao', autenticar, async (requisicao: RequisicaoAutenticada, resposta, proximo) => {
   try {
-    const [usuarios] = await bancoDados.query<UserRow[]>('SELECT id_usuario, nome, email, data_nascimento FROM usuarios WHERE id_usuario = ? AND ativo = TRUE LIMIT 1', [requisicao.userId]);
+    const [usuarios] = await bancoDados.query<UserRow[]>('SELECT id_usuario, nome, email, data_nascimento, foto_perfil_binaria FROM usuarios WHERE id_usuario = ? AND ativo = TRUE LIMIT 1', [requisicao.userId]);
     if (!usuarios.length) return resposta.status(404).json({
       mensagem: 'Usuário não encontrado.'
     });
@@ -123,6 +126,7 @@ rotasAutenticacao.get('/sessao', autenticar, async (requisicao: RequisicaoAutent
         id: usuario.id_usuario,
         nome: usuario.nome,
         email: usuario.email,
+        fotoPerfil: fotoComoUri(usuario.foto_perfil_binaria),
         dataNascimento: usuario.data_nascimento
       }
     });

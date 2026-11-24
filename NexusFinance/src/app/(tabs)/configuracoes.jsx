@@ -1,7 +1,8 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, View, Text, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Switch } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import Icon from '@expo/vector-icons/MaterialIcons';
+import ModalAviso from "../../componentes/ModalAviso";
 import BarraNavegacao from "../../componentes/BarraNavegacao";
 import { CartaoAnimado, TelaAnimada } from "../../componentes/TelaAnimada";
 import { useEstilosApp } from "../../style/style";
@@ -25,6 +26,8 @@ export default function Configuracoes() {
   const [salvando, setSalvando] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [solicitandoExclusao, setSolicitandoExclusao] = useState(false);
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [exclusaoRegistrada, setExclusaoRegistrada] = useState('');
   const [erro, setErro] = useState('');
   useFocusEffect(useCallback(() => {
     let ativo = true;
@@ -72,29 +75,22 @@ export default function Configuracoes() {
       setExportando(false);
     }
   }
-  function solicitarExclusao() {
-    Alert.alert('Solicitar exclusão da conta?', 'O pedido será analisado. Seus dados não serão apagados automaticamente e retenções legais poderão ser avaliadas.', [{
-      text: 'Cancelar',
-      style: 'cancel'
-    }, {
-      text: 'Solicitar',
-      style: 'destructive',
-      onPress: async () => {
-        setSolicitandoExclusao(true);
-        setErro('');
-        try {
-          const resposta = await apiAutenticada('/privacidade/solicitacoes', {
-            method: 'POST',
-            body: JSON.stringify({ tipo: 'eliminacao' })
-          });
-          Alert.alert('Solicitação registrada', resposta.mensagem);
-        } catch (falha) {
-          setErro(falha.message);
-        } finally {
-          setSolicitandoExclusao(false);
-        }
-      }
-    }]);
+  async function solicitarExclusao() {
+    if (solicitandoExclusao) return;
+    setConfirmandoExclusao(false);
+    setSolicitandoExclusao(true);
+    setErro('');
+    try {
+      const resposta = await apiAutenticada('/privacidade/solicitacoes', {
+        method: 'POST',
+        body: JSON.stringify({ tipo: 'eliminacao' })
+      });
+      setExclusaoRegistrada(resposta.mensagem);
+    } catch (falha) {
+      setErro(falha.message);
+    } finally {
+      setSolicitandoExclusao(false);
+    }
   }
   function item(icone, rotulo, acao, desabilitado = false) {
     return <TouchableOpacity accessibilityRole="button" style={estilos.item} onPress={acao} disabled={desabilitado}>
@@ -188,13 +184,19 @@ export default function Configuracoes() {
           <Text style={estilos.cartaoTitulo}>Dados e ajuda</Text>
           {item('download', exportando ? 'Exportando...' : 'Exportar transações (CSV)', exportar, exportando)}
           <View style={estilos.divisor} />
-          {item('privacy-tip', solicitandoExclusao ? 'Enviando solicitação...' : 'Solicitar exclusão da conta', solicitarExclusao, solicitandoExclusao)}
+          {item('privacy-tip', solicitandoExclusao ? 'Enviando solicitação...' : 'Solicitar exclusão da conta', () => setConfirmandoExclusao(true), solicitandoExclusao)}
           <View style={estilos.divisor} />
           {item('help-outline', 'Central de ajuda', () => router.push('/menus/centralAjuda'))}
           <View style={estilos.divisor} />
           {item('info', 'Sobre o aplicativo', () => router.push('/menus/sobreApp'))}
         </CartaoAnimado>
       </ScrollView>
+      <ModalAviso visivel={confirmandoExclusao} tipo="informacao" titulo="Solicitar exclusão da conta?"
+        mensagem="O pedido será analisado. Seus dados não serão apagados automaticamente e retenções legais poderão ser avaliadas."
+        textoBotao="Cancelar" aoFechar={() => setConfirmandoExclusao(false)}
+        textoConfirmar="Solicitar" aoConfirmar={solicitarExclusao} />
+      <ModalAviso visivel={Boolean(exclusaoRegistrada)} titulo="Solicitação registrada"
+        mensagem={exclusaoRegistrada} aoFechar={() => setExclusaoRegistrada('')} />
       <BarraNavegacao />
     </TelaAnimada>;
 }

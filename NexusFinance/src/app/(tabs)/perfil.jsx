@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import * as DocumentPicker from 'expo-document-picker';
+import AvatarPerfil from '../../componentes/AvatarPerfil';
 import BarraNavegacao from "../../componentes/BarraNavegacao";
 import { CartaoAnimado, TelaAnimada } from "../../componentes/TelaAnimada";
-import { View, Text, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Modal, Platform } from 'react-native';
 import { router } from 'expo-router';
 import Icon from '@expo/vector-icons/MaterialIcons';
 import { useEstilosApp } from "../../style/style";
@@ -15,14 +17,49 @@ export default function Perfil() {
     estilosCompartilhados
   } = useEstilosApp();
   const [modalSair, setModalSair] = useState(false);
+  const selecionandoFoto = useRef(false);
+  const [salvandoFoto, setSalvandoFoto] = useState(false);
+  const [erroFoto, setErroFoto] = useState('');
   const {
     usuario,
+    setUsuario,
     encerrarSessao
   } = useSessao();
   const {
     dados
   } = useResumoFinanceiro();
   const totais = dados.atual;
+  async function alterarFoto() {
+    if (selecionandoFoto.current || !usuario) return;
+    selecionandoFoto.current = true;
+    setSalvandoFoto(true);
+    setErroFoto('');
+    try {
+      const resultado = await DocumentPicker.getDocumentAsync({
+        type: ['image/jpeg', 'image/png'],
+        copyToCacheDirectory: true,
+        base64: false
+      });
+      if (resultado.canceled) return;
+      const arquivo = resultado.assets[0];
+      if (Platform.OS === 'web') URL.revokeObjectURL(arquivo.uri);
+      if (arquivo.size > 2 * 1024 * 1024) throw new Error('Escolha uma foto de até 2 MB.');
+      const formulario = new FormData();
+      if (Platform.OS === 'web') {
+        formulario.append('foto', arquivo.file, arquivo.name);
+      } else {
+        formulario.append('foto', { uri: arquivo.uri, name: arquivo.name, type: arquivo.mimeType || 'application/octet-stream' });
+      }
+      const { fotoPerfil } = await apiAutenticada('/usuarios/me/foto', { method: 'PUT', body: formulario });
+      setUsuario(atual => atual?.id === usuario.id ? { ...atual, fotoPerfil } : atual);
+    } catch (falha) {
+      setErroFoto(falha.message || 'Não foi possível alterar a foto.');
+    } finally {
+      selecionandoFoto.current = false;
+      setSalvandoFoto(false);
+    }
+  }
+
   async function sair() {
     try {
       await apiAutenticada('/auth/logout', {
@@ -40,19 +77,26 @@ export default function Perfil() {
         {/* Perfil */}
         <CartaoAnimado style={estilos.perfilRecipiente} atraso={40}>
           <View style={estilos.perfilCirculo}>
-            <Icon name="person-outline" size={60} color={cores.textoPrincipal} />
+            <AvatarPerfil foto={usuario?.fotoPerfil} tamanho={60} cor={cores.textoPrincipal} />
           </View>
 
           <View style={estilos.perfilInformacoes}>
             <Text style={estilos.nome}>{usuario?.nome || 'Usuário'}</Text>
 
             <Text style={estilos.email}>{usuario?.email || ''}</Text>
+            <TouchableOpacity accessibilityRole="button" disabled={!usuario || salvandoFoto} onPress={alterarFoto} style={{ minHeight: 44, justifyContent: 'center' }}>
+              <Text style={{ color: cores.textoLink, fontWeight: '700' }}>
+                {salvandoFoto ? 'Salvando foto…' : usuario?.fotoPerfil ? 'Alterar foto' : 'Adicionar foto'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={estilos.settingsBotao} onPress={() => router.push('/configuracoes')}>
             <Icon name="settings" size={24} color={cores.textoPrincipal} />
           </TouchableOpacity>
         </CartaoAnimado>
+
+        {erroFoto ? <Text accessibilityLiveRegion="polite" style={estilosCompartilhados.erroTexto}>{erroFoto}</Text> : null}
 
         {/* Resumo */}
 
@@ -130,9 +174,9 @@ export default function Perfil() {
 
           <TouchableOpacity style={estilos.itemMenu} onPress={() => setModalSair(true)}>
             <View style={estilos.itemEsquerda}>
-              <Icon name="logout" size={24} color={cores.textoPrincipal} />
+              <Icon name="logout" size={24} color={cores.perigo} />
 
-              <Text style={estilos.itemTexto}>Encerrar sessão</Text>
+              <Text style={[estilos.itemTexto, { color: cores.perigo }]}>Encerrar sessão</Text>
             </View>
 
             <Icon name="chevron-right" size={24} color={cores.textoPrincipal} />
@@ -158,12 +202,12 @@ export default function Perfil() {
             <Text style={estilos.modalTexto}>Você poderá entrar novamente quando quiser.</Text>
 
             <View style={estilos.modalBotoes}>
-              <TouchableOpacity style={estilos.sair} onPress={() => setModalSair(false)}>
-                <Text style={estilos.cancelarTexto}>Cancelar</Text>
+              <TouchableOpacity style={[estilos.sair, { backgroundColor: cores.primaria }]} onPress={() => setModalSair(false)}>
+                <Text style={estilos.sairTexto}>Cancelar</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={estilos.cancelar} onPress={sair}>
-                <Text style={estilos.sairTexto}>Sair</Text>
+                <Text style={[estilos.cancelarTexto, { color: cores.perigo }]}>Sair</Text>
               </TouchableOpacity>
             </View>
           </View>

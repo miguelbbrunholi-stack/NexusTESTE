@@ -1,4 +1,6 @@
+import AvatarPerfil from '../../componentes/AvatarPerfil';
 import ModalAviso from "../../componentes/ModalAviso";
+import { dataParaIso, formatarEntradaData } from '../../servicos/entradaData.mjs';
 import CampoData from "../../componentes/CampoData";
 import { TelaAnimada } from "../../componentes/TelaAnimada";
 import { AreaTeclado, RolagemFormulario, CampoFormulario } from "../../componentes/LayoutFormulario";
@@ -17,6 +19,7 @@ export default function MeuCadastro() {
     estilosCompartilhados
   } = useEstilosApp();
   const {
+    usuario: usuarioSessao,
     setUsuario
   } = useSessao();
   const [nome, setNome] = useState('');
@@ -41,7 +44,7 @@ export default function MeuCadastro() {
         nome: usuario.nome || '',
         email: usuario.email || '',
         telefone: usuario.telefone || '',
-        nascimento: usuario.dataNascimento || ''
+        nascimento: formatarEntradaData(usuario.dataNascimento)
       };
       setNome(dados.nome);
       setEmail(dados.email);
@@ -65,6 +68,10 @@ export default function MeuCadastro() {
     const semAlteracao = original && nome.trim() === original.nome && email.trim() === original.email && telefone.trim() === original.telefone && nascimento.trim() === original.nascimento;
     if (semAlteracao) {
       setPopupErro('Você não alterou nenhum dado.');
+      return;
+    }
+    if (nascimento && !dataParaIso(nascimento)) {
+      setErro('Informe uma data de nascimento válida.');
       return;
     }
     setSalvando(true);
@@ -102,7 +109,7 @@ export default function MeuCadastro() {
           <View style={estilos.cartao}>
             <View style={estilos.perfilLinha}>
               <View style={estilos.perfilCirculo}>
-                <Icon name="person" size={32} color={cores.primaria} />
+                <AvatarPerfil foto={usuarioSessao?.fotoPerfil} tamanho={32} cor={cores.primaria} />
               </View>
 
               <View style={estilos.perfilInformacoes}>

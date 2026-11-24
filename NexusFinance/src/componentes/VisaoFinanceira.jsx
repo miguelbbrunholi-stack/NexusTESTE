@@ -241,19 +241,19 @@ export default function VisaoFinanceira({ dados, aoExportar, exportando = false,
           />
 
           <View style={estilos.modalAcoes}>
-            <Pressable style={[estilos.botaoModal, estilos.botaoSecundario]} onPress={fecharModalLimite}>
-              <Text style={[estilos.textoBotaoModal, { color: cores.textoPrincipal }]}>Cancelar</Text>
+            <Pressable style={[estilos.botaoModal, { backgroundColor: cores.primaria }]} onPress={fecharModalLimite}>
+              <Text style={[estilos.textoBotaoModal, { color: cores.sobrePrimaria }]}>Cancelar</Text>
             </Pressable>
             <Pressable
               style={[
                 estilos.botaoModal,
-                { backgroundColor: cores.primaria },
+                estilos.botaoSecundario,
                 (!valorTotalLimite || Number(String(valorTotalLimite).replace(/[R$\s.]/g, '').replace(',', '.')) <= 0) && estilos.botaoDesabilitado,
               ]}
               onPress={salvarLimite}
               disabled={!valorTotalLimite || Number(String(valorTotalLimite).replace(/[R$\s.]/g, '').replace(',', '.')) <= 0}
             >
-              <Text style={[estilos.textoBotaoModal, { color: cores.sobrePrimaria }]}>Salvar</Text>
+              <Text style={[estilos.textoBotaoModal, { color: cores.textoPrincipal }]}>Salvar</Text>
             </Pressable>
           </View>
         </Pressable>

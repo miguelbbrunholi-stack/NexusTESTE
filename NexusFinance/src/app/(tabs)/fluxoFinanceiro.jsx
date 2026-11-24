@@ -1,3 +1,7 @@
+import AbasLista from '../../componentes/AbasLista';
+import Paginacao from '../../componentes/Paginacao';
+import CampoData from '../../componentes/CampoData';
+import { dataParaIso, formatarEntradaData } from '../../servicos/entradaData.mjs';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useIsFocused, useLocalSearchParams } from 'expo-router';
@@ -5,6 +9,21 @@ import BarraNavegacao from "../../componentes/BarraNavegacao";
 import { CartaoAnimado, TelaAnimada } from "../../componentes/TelaAnimada";
 import { useEstilosApp } from "../../style/style";
 import { apiAutenticada, formatarReais, formatarData } from "../../servicos/financeiro";
+
+const LIMITE = 10;
+const ABAS = ['Geral', 'Receitas', 'Despesas'];
+const SEM_PERIODO = { inicio: '', fim: '' };
+
+function periodoRapido(atual) {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth() + (atual ? 1 : 0);
+  const formatar = data => [String(data.getDate()).padStart(2, '0'), String(data.getMonth() + 1).padStart(2, '0'), data.getFullYear()].join('/');
+  return {
+    inicio: formatar(new Date(ano, mes - 1, 1)),
+    fim: formatar(new Date(ano, mes, 0)),
+  };
+}
 
 function OpcoesFiltro({ opcoes, selecionado, aoSelecionar, cores }) {
   return (
@@ -57,8 +76,11 @@ export default function FluxoFinanceiro() {
   const [transacoes, setTransacoes] = useState([]);
   const [contaFiltro, setContaFiltro] = useState('Todos');
   const [contaRascunho, setContaRascunho] = useState('Todos');
-  const [mesFiltro, setMesFiltro] = useState('Todos');
-  const [mesRascunho, setMesRascunho] = useState('Todos');
+  const [periodo, setPeriodo] = useState(SEM_PERIODO);
+  const [periodoRascunho, setPeriodoRascunho] = useState(SEM_PERIODO);
+  const [erroPeriodo, setErroPeriodo] = useState('');
+  const [pagina, setPagina] = useState(1);
+  const rolagem = useRef(null);
   const [categoriaFiltro, setCategoriaFiltro] = useState('Todos');
   const [categoriaRascunho, setCategoriaRascunho] = useState('Todos');
   const [categoriasCatalogo, setCategoriasCatalogo] = useState([]);
@@ -72,7 +94,10 @@ export default function FluxoFinanceiro() {
   const travaConfirmacao = useRef(false);
   const recarregar = useCallback(() => setRevisao(valor => valor + 1), []);
   useEffect(() => {
-    if (['Geral', 'Receitas', 'Despesas'].includes(aba)) setAbaSelecionada(aba);
+    if (ABAS.includes(aba)) {
+      setAbaSelecionada(aba);
+      setPagina(1);
+    }
   }, [aba]);
   useEffect(() => {
     if (!estaEmFoco) return undefined;
@@ -136,15 +161,13 @@ export default function FluxoFinanceiro() {
   const contasDisponiveis = useMemo(() => [...new Set(
     transacoes.map(item => item.tipoConta).filter(Boolean)
   )].sort((a, b) => a.localeCompare(b, 'pt-BR')), [transacoes]);
-  const mesesDisponiveis = useMemo(() => [...new Set(
-    transacoes.map(item => String(item.data || '').slice(0, 7)).filter(Boolean)
-  )].sort((a, b) => b.localeCompare(a)), [transacoes]);
-  const filtrosAtivos = [statusFiltro !== 'Todos', contaFiltro !== 'Todos', mesFiltro !== 'Todos', categoriaFiltro !== 'Todos'].filter(Boolean).length;
+  const filtrosAtivos = [statusFiltro !== 'Todos', contaFiltro !== 'Todos', Boolean(periodo.inicio || periodo.fim), categoriaFiltro !== 'Todos'].filter(Boolean).length;
 
   function abrirFiltros() {
     setStatusRascunho(statusFiltro);
     setContaRascunho(contaFiltro);
-    setMesRascunho(mesFiltro);
+    setPeriodoRascunho({ inicio: formatarEntradaData(periodo.inicio), fim: formatarEntradaData(periodo.fim) });
+    setErroPeriodo('');
     setCategoriaRascunho(categoriaFiltro);
     const [tipoSelecionado, nomeSelecionado] = categoriaFiltro.split('::');
     setTipoOutrosAberto(categoriaFiltro !== 'Todos' && !categoriasPrincipaisPorTipo[tipoSelecionado]?.includes(nomeSelecionado) ? tipoSelecionado : null);
@@ -168,10 +191,26 @@ export default function FluxoFinanceiro() {
       .finally(() => setCarregandoCategorias(false));
   }
 
+  function mudarPagina(destino) {
+    setPagina(destino);
+    rolagem.current?.scrollTo({ y: 0, animated: false });
+  }
+
   function aplicarFiltros() {
+    const inicio = dataParaIso(periodoRascunho.inicio);
+    const fim = dataParaIso(periodoRascunho.fim);
+    if ((periodoRascunho.inicio && !inicio) || (periodoRascunho.fim && !fim)) {
+      setErroPeriodo('Informe uma data válida no formato DD/MM/AAAA.');
+      return;
+    }
+    if (inicio && fim && inicio > fim) {
+      setErroPeriodo('A data inicial deve ser anterior ou igual à data final.');
+      return;
+    }
+    mudarPagina(1);
     setStatusFiltro(statusRascunho);
     setContaFiltro(contaRascunho);
-    setMesFiltro(mesRascunho);
+    setPeriodo({ inicio, fim });
     setCategoriaFiltro(categoriaRascunho);
     setFiltroAberto(false);
   }
@@ -190,8 +229,8 @@ export default function FluxoFinanceiro() {
     setStatusRascunho('Todos');
     setContaFiltro('Todos');
     setContaRascunho('Todos');
-    setMesFiltro('Todos');
-    setMesRascunho('Todos');
+    setPeriodo(SEM_PERIODO);
+    mudarPagina(1);
     setCategoriaFiltro('Todos');
     setCategoriaRascunho('Todos');
     setTipoOutrosAberto(null);
@@ -209,38 +248,39 @@ export default function FluxoFinanceiro() {
       const contaCorresponde =
         contaFiltro === 'Todos' || item.tipoConta === contaFiltro;
 
-      const mesCorresponde =
-        mesFiltro === 'Todos' || String(item.data).slice(0, 7) === mesFiltro;
+      const data = String(item.data).slice(0, 10);
+      const periodoCorresponde = (!periodo.inicio || data >= periodo.inicio) &&
+        (!periodo.fim || data <= periodo.fim);
 
       const categoriaCorresponde = categoriaFiltro === 'Todos' ||
         `${item.tipo}::${item.categoria}` === categoriaFiltro;
 
-      return tipoCorresponde && statusCorresponde && contaCorresponde && mesCorresponde && categoriaCorresponde;
+      return tipoCorresponde && statusCorresponde && contaCorresponde && periodoCorresponde && categoriaCorresponde;
     });
-  }, [abaSelecionada, statusFiltro, contaFiltro, mesFiltro, categoriaFiltro, transacoes]);
+  }, [abaSelecionada, statusFiltro, contaFiltro, periodo, categoriaFiltro, transacoes]);
+
+  const totalPaginas = Math.max(1, Math.ceil(transacoesFiltradas.length / LIMITE));
+  const paginaAtual = Math.min(pagina, totalPaginas);
 
   const gruposMes = useMemo(() => {
     const grupos = new Map();
-    for (const item of transacoesFiltradas) {
+    for (const item of transacoesFiltradas.slice((paginaAtual - 1) * LIMITE, paginaAtual * LIMITE)) {
       const chave = String(item.data).slice(0, 7);
       if (!grupos.has(chave)) grupos.set(chave, []);
       grupos.get(chave).push(item);
     }
     return [...grupos.entries()];
-  }, [transacoesFiltradas]);
+  }, [transacoesFiltradas, paginaAtual]);
   function nomeMes(chave) {
     const [ano, mes] = chave.split('-').map(Number);
     return new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   }
   return <TelaAnimada style={estilos.recipiente} atraso={60}>
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={estilosCompartilhados.espacamentoInferior120}>
-      <CartaoAnimado style={estilos.filtroRecipiente} atraso={40}>
-        {['Geral', 'Receitas', 'Despesas'].map(opcao => <TouchableOpacity key={opcao} accessibilityRole="button" accessibilityState={{ selected: abaSelecionada === opcao }} style={[estilos.botaoFiltro, abaSelecionada === opcao && estilos.botaoAtivo]} onPress={() => setAbaSelecionada(opcao)}>
-          <Text style={[estilos.textoABA, abaSelecionada === opcao && estilos.textoAtivo]}>
-            {opcao}
-          </Text>
-        </TouchableOpacity>)}
-      </CartaoAnimado>
+    <ScrollView ref={rolagem} showsVerticalScrollIndicator={false} contentContainerStyle={estilosCompartilhados.espacamentoInferior120}>
+      <AbasLista opcoes={ABAS} selecionada={abaSelecionada} aoSelecionar={opcao => {
+        setAbaSelecionada(opcao);
+        mudarPagina(1);
+      }} />
 
 
       <CartaoAnimado style={estilos.dados} atraso={220}>
@@ -301,6 +341,7 @@ export default function FluxoFinanceiro() {
             </View>
           </CartaoAnimado>)}
         </View>)}
+        <Paginacao pagina={paginaAtual} total={totalPaginas} aoMudar={mudarPagina} />
         {!carregando && !erro && transacoesFiltradas.length === 0 ? <Text style={estilos.dadosTexto}>{transacoes.length ? 'Nenhuma movimentação corresponde aos filtros. Ajuste ou limpe os filtros.' : 'Nenhuma movimentação cadastrada.'}</Text> : null}
       </CartaoAnimado>
     </ScrollView>
@@ -353,20 +394,36 @@ export default function FluxoFinanceiro() {
             />
 
             <Text style={{ color: cores.textoPrincipal, fontSize: 16, fontWeight: '700', marginTop: 18 }}>
-              Mês
+              Período
             </Text>
             <OpcoesFiltro
               opcoes={[
-                { valor: 'Todos', rotulo: 'Todos os meses' },
-                ...mesesDisponiveis.map(mes => ({
-                  valor: mes,
-                  rotulo: nomeMes(mes),
-                })),
+                { valor: 'todos', rotulo: 'Todo o período' },
+                { valor: 'atual', rotulo: 'Este mês' },
+                { valor: 'anterior', rotulo: 'Mês passado' },
               ]}
-              selecionado={mesRascunho}
-              aoSelecionar={setMesRascunho}
+              selecionado={!periodoRascunho.inicio && !periodoRascunho.fim ? 'todos' :
+                ['atual', 'anterior'].find(opcao => {
+                  const datas = periodoRapido(opcao === 'atual');
+                  return datas.inicio === periodoRascunho.inicio && datas.fim === periodoRascunho.fim;
+                })}
+              aoSelecionar={opcao => {
+                setPeriodoRascunho(opcao === 'todos' ? SEM_PERIODO : periodoRapido(opcao === 'atual'));
+                setErroPeriodo('');
+              }}
               cores={cores}
             />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
+              {[['inicio', 'Data inicial'], ['fim', 'Data final']].map(([chave, rotulo]) => (
+                <View key={chave} style={{ flexGrow: 1, flexBasis: 145, padding: 8, borderWidth: 1, borderColor: cores.borda, borderRadius: 12 }}>
+                  <CampoData placeholder={rotulo} placeholderTextColor={cores.textoIndicativo} value={periodoRascunho[chave]} onChangeText={valor => {
+                    setPeriodoRascunho(atual => ({ ...atual, [chave]: valor }));
+                    setErroPeriodo('');
+                  }} />
+                </View>
+              ))}
+            </View>
+            {erroPeriodo ? <Text accessibilityLiveRegion="polite" style={estilosCompartilhados.erroTexto}>{erroPeriodo}</Text> : null}
 
             <Text style={{ color: cores.textoPrincipal, fontSize: 16, fontWeight: '700', marginTop: 18 }}>
               Conta
@@ -452,11 +509,11 @@ export default function FluxoFinanceiro() {
               <Text style={{ color: cores.perigo, fontWeight: '600' }}>Limpar</Text>
             </TouchableOpacity>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TouchableOpacity accessibilityRole="button" onPress={() => setFiltroAberto(false)} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 }}>
-                <Text style={{ color: cores.textoSecundario }}>Cancelar</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setFiltroAberto(false)} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, backgroundColor: cores.primaria }}>
+                <Text style={{ color: cores.sobrePrimaria, fontWeight: '700' }}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button" onPress={aplicarFiltros} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 18, borderRadius: 12, backgroundColor: cores.primaria }}>
-                <Text style={{ color: cores.sobrePrimaria, fontWeight: '700' }}>Aplicar</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={aplicarFiltros} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 18, borderRadius: 12, borderWidth: 1, borderColor: cores.primaria }}>
+                <Text style={{ color: cores.textoPrincipal, fontWeight: '700' }}>Aplicar</Text>
               </TouchableOpacity>
             </View>
           </View>

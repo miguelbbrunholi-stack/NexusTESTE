@@ -1,3 +1,4 @@
+import AvatarPerfil from '../../componentes/AvatarPerfil';
 import VisaoFinanceira from "../../componentes/VisaoFinanceira";
 import { TelaAnimada } from "../../componentes/TelaAnimada";
 import React, { useCallback, useState } from 'react';
@@ -132,7 +133,7 @@ export default function Inicial() {
           <Animated.View entering={FadeInUp.duration(400)} style={estilosCompartilhados.telaCabecalhoLinha}>
             <Pressable onPress={() => router.push('/perfil')} style={estilos.perfilContaine}>
               <View style={estilos.perfilCirculo}>
-                <Icon name="person-outline" size={36} color={cores.primaria} />
+                <AvatarPerfil foto={usuario?.fotoPerfil} tamanho={36} cor={cores.primaria} />
               </View>
 
               <View style={estilos.perfilInformacoes}>
@@ -226,7 +227,28 @@ export default function Inicial() {
                 </View>
               </View>
 
-              <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ marginTop: 18, marginBottom: 25 }}>
+              <CartaoPainel style={{ marginTop: 18 }}>
+                <Text style={{ color: cores.textoPrincipal, fontSize: 17, fontWeight: '700', marginBottom: 14 }}>Ações rápidas</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  {[
+                    { icone: 'add-circle-outline', titulo: 'Nova receita', rota: '/receita/novaReceita', cor: cores.sucesso, fundo: cores.sucessoSuave },
+                    { icone: 'remove-circle-outline', titulo: 'Nova despesa', rota: '/despesa/novaDespesa', cor: cores.perigo, fundo: cores.perigoSuave },
+                    { icone: 'insights', titulo: 'Ver painel', rota: '/painel', cor: cores.primaria, fundo: cores.primariaSuave },
+                  ].map(acao => (
+                    <Pressable
+                      key={acao.titulo}
+                      accessibilityRole="button"
+                      onPress={() => router.push(acao.rota)}
+                      style={{ flex: 1, minHeight: 92, alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16, backgroundColor: acao.fundo, paddingHorizontal: 6, paddingVertical: 10 }}
+                    >
+                      <Icon name={acao.icone} size={23} color={acao.cor} />
+                      <Text style={{ color: cores.textoPrincipal, fontSize: 11, fontWeight: '600', textAlign: 'center' }}>{acao.titulo}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </CartaoPainel>
+
+              <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ marginTop: 16 }}>
                 <CartaoPainel>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
                     <View style={{ flex: 1 }}>
@@ -296,27 +318,6 @@ export default function Inicial() {
                   ) : null}
                 </CartaoPainel>
               </Animated.View>
-
-              <CartaoPainel>
-                <Text style={{ color: cores.textoPrincipal, fontSize: 17, fontWeight: '700', marginBottom: 14 }}>Ações rápidas</Text>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  {[
-                    { icone: 'add-circle-outline', titulo: 'Nova receita', rota: '/receita/novaReceita', cor: cores.sucesso, fundo: cores.sucessoSuave },
-                    { icone: 'remove-circle-outline', titulo: 'Nova despesa', rota: '/despesa/novaDespesa', cor: cores.perigo, fundo: cores.perigoSuave },
-                    { icone: 'insights', titulo: 'Ver painel', rota: '/painel', cor: cores.primaria, fundo: cores.primariaSuave },
-                  ].map(acao => (
-                    <Pressable
-                      key={acao.titulo}
-                      accessibilityRole="button"
-                      onPress={() => router.push(acao.rota)}
-                      style={{ flex: 1, minHeight: 92, alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16, backgroundColor: acao.fundo, paddingHorizontal: 6, paddingVertical: 10 }}
-                    >
-                      <Icon name={acao.icone} size={23} color={acao.cor} />
-                      <Text style={{ color: cores.textoPrincipal, fontSize: 11, fontWeight: '600', textAlign: 'center' }}>{acao.titulo}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </CartaoPainel>
 
               <CartaoPainel style={{ marginTop: 16 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>

@@ -126,11 +126,11 @@ export function SeletoresTransacao({
               </Text>
               {erro ? <Text style={estilos.erro}>{erro}</Text> : null}
               <View style={estilos.acoes}>
-                <Pressable disabled={salvando} accessibilityRole="button" onPress={() => setAberto(false)} style={estilos.secundario}>
-                  <Text style={estilos.valor}>Cancelar</Text>
+                <Pressable disabled={salvando} accessibilityRole="button" onPress={() => setAberto(false)} style={estilos.primario}>
+                  <Text style={estilos.botaoTexto}>Cancelar</Text>
                 </Pressable>
-                <Pressable disabled={salvando} accessibilityRole="button" onPress={salvarCategoria} style={estilos.primario}>
-                  <Text style={estilos.botaoTexto}>
+                <Pressable disabled={salvando} accessibilityRole="button" onPress={salvarCategoria} style={estilos.secundario}>
+                  <Text style={estilos.valor}>
                     {salvando ? 'Salvando...' : 'Salvar categoria'}
                   </Text>
                 </Pressable>

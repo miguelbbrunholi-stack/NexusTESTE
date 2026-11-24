@@ -9,7 +9,9 @@ export default function ModalAviso({
   mensagem,
   tipo = 'sucesso',
   textoBotao = 'Entendi',
-  aoFechar
+  aoFechar,
+  textoConfirmar,
+  aoConfirmar
 }) {
   const {
     cores
@@ -76,6 +78,11 @@ export default function ModalAviso({
               color: cores.sobrePrimaria
             }]}>{textoBotao}</Text>
             </Pressable>
+            {aoConfirmar ? (
+              <Pressable accessibilityRole="button" onPress={aoConfirmar} style={[estilos.botao, { marginTop: 8, borderWidth: 1, borderColor: cores.borda }]}>
+                <Text style={[estilos.textoBotao, { color: cores.textoPrincipal }]}>{textoConfirmar}</Text>
+              </Pressable>
+            ) : null}
           </Animated.View>
         </ScrollView>
       </View>

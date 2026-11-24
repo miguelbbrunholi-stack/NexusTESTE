@@ -1,7 +1,7 @@
 # Estrutura do Projeto Nexus Finance
 
 ```text
-ProjetoNexus/
+NexusTESTE/
 ├── NexusFinance/
 │   ├── src/
 │   │   ├── app/              # Telas e layouts do Expo Router
@@ -33,10 +33,9 @@ ProjetoNexus/
 ├── bancoDados/
 │   ├── estrutura.sql         # Criação inicial do banco
 │   └── seed_teste_completo_usuario_1.sql
-├── docs/
-│   ├── DOCUMENTACAO_FUNCIONALIDADES.md
-│   └── ESTRUTURA_PROJETO.md
-└── README.md
+└── docs/
+    ├── DOCUMENTACAO_FUNCIONALIDADES.md
+    └── ESTRUTURA_PROJETO.md
 ```
 
 ## Convenções

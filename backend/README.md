@@ -1,12 +1,12 @@
 # Backend do Nexus Finance
 
-API simples em TypeScript para cadastro, login, sessão e recuperação de senha.
+API Express em TypeScript para autenticação, perfil, finanças, metas, notificações e preferências. Consulte o [guia completo do app](../docs/DOCUMENTACAO_FUNCIONALIDADES.md) para a arquitetura e as regras de uso.
 
 ## Como executar
 
 1. Inicie o MySQL (no XAMPP, use **Start** no módulo MySQL). Apenas na primeira instalação, importe `../bancoDados/estrutura.sql`: esse arquivo apaga e recria o banco, portanto não o execute sobre dados que deseja preservar.
 2. Crie `.env` e configure `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`, `RECOVERY_TOKEN_SECRET`, `EMAIL_USER` e `EMAIL_PASSWORD`. Em produção, `JWT_SECRET` e `RECOVERY_TOKEN_SECRET` precisam ter ao menos 32 caracteres, `APP_ORIGINS` deve listar as origens web permitidas separadas por vírgula e `DB_SSL=true` ativa TLS com validação de certificado para o banco.
-3. Dentro desta pasta, execute `npm install`, `npm run migrate` e depois `npm run dev`. A migração adiciona o controle de recorrências sem apagar dados; também pode ser executada como `npm run build` seguido de `node dist/bancoDados/migrar.js`.
+3. Dentro desta pasta, execute `npm install`, `npm run migrate` e depois `npm run dev`. A migração adiciona a coluna de foto e atualiza o esquema existente preservando os dados; também pode ser executada como `npm run build` seguido de `node dist/bancoDados/migrar.js`.
 
 A API ficará disponível em `http://localhost:3000`.
 
@@ -32,6 +32,7 @@ O backend precisa continuar aberto em um terminal enquanto o aplicativo Expo est
 - `GET/POST /metas` — consulta e cria metas.
 - `GET /notificacoes` — consulta as notificações reais do usuário.
 - `GET/PUT /usuarios/me` — consulta e atualiza o cadastro do usuário.
+- `PUT /usuarios/me/foto` — recebe um JPG ou PNG de até 2 MiB no campo multipart `foto` e retorna `fotoPerfil`. A foto é persistida no banco e reaparece no login e na restauração da sessão.
 - `GET/POST /privacidade/solicitacoes` — consulta e registra pedidos de acesso, exportação, correção ou eliminação. A equipe responsável deve avaliar e concluir cada pedido.
 
 Todas as rotas após as rotas de autenticação exigem o header `Authorization: Bearer TOKEN`.

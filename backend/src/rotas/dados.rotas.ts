@@ -8,6 +8,8 @@ import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { autenticar, RequisicaoAutenticada } from "../middlewares/autenticacao";
 import { bancoDados } from "../bancoDados/bancoDados";
 import { dataNascimentoValida, emailValido, normalizarData, normalizarEmail } from "../utilitarios/validacoes";
+import { fotoComoUri, receberFoto } from '../servicos/fotoPerfil';
+
 interface DataRow extends RowDataPacket {
   [chave: string]: unknown;
 }
@@ -299,6 +301,25 @@ rotasDados.patch('/notificacoes/:id/lida', async (requisicao: RequisicaoAutentic
     proximo(falha);
   }
 });
+rotasDados.put('/usuarios/me/foto', receberFoto, async (requisicao: RequisicaoAutenticada, resposta, proximo) => {
+  try {
+    const arquivo = requisicao.file;
+    const fotoPerfil = fotoComoUri(arquivo?.buffer);
+    if (!arquivo || !fotoPerfil) {
+      return resposta.status(400).json({ mensagem: 'Selecione uma foto JPG ou PNG válida.' });
+    }
+
+    const [resultado] = await bancoDados.execute<ResultSetHeader>(
+      'UPDATE usuarios SET foto_perfil_binaria = ? WHERE id_usuario = ? AND ativo = TRUE',
+      [arquivo.buffer, requisicao.userId!]
+    );
+    if (!resultado.affectedRows) return resposta.status(404).json({ mensagem: 'Usuário não encontrado.' });
+    resposta.json({ fotoPerfil });
+  } catch (falha) {
+    proximo(falha);
+  }
+});
+
 rotasDados.get('/usuarios/me', async (requisicao: RequisicaoAutenticada, resposta, proximo) => {
   try {
     const [linhas] = await bancoDados.query<DataRow[]>(`SELECT u.nome, u.email, u.telefone,

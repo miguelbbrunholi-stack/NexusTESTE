@@ -1,6 +1,8 @@
 import { RowDataPacket } from 'mysql2';
 import { bancoDados } from "./bancoDados";
 async function migrar() {
+  const [fotoPerfil] = await bancoDados.query<RowDataPacket[]>("SHOW COLUMNS FROM usuarios LIKE 'foto_perfil_binaria'");
+  if (!fotoPerfil.length) await bancoDados.query('ALTER TABLE usuarios ADD COLUMN foto_perfil_binaria MEDIUMBLOB NULL');
   const [colunas] = await bancoDados.query<RowDataPacket[]>("SHOW COLUMNS FROM recorrencias LIKE 'ultima_geracao'");
   if (!colunas.length) await bancoDados.query('ALTER TABLE recorrencias ADD COLUMN ultima_geracao DATE NULL AFTER data_fim');
   const [parcelaAtual] = await bancoDados.query<RowDataPacket[]>("SHOW COLUMNS FROM transacoes LIKE 'parcela_atual'");

@@ -20,7 +20,7 @@ Aplicativo Expo com React Native e Expo Router.
 - `src/tema/`: paletas de cores.
 - `assets/`: imagens e demais recursos estáticos.
 
-O alias `@/` aponta para `src/`. A documentação detalhada fica em [docs](../docs/ESTRUTURA_PROJETO.md).
+O alias `@/` aponta para `src/`. A documentação detalhada fica em [guia do app](../docs/DOCUMENTACAO_FUNCIONALIDADES.md) e na [estrutura do projeto](../docs/ESTRUTURA_PROJETO.md).
 
 ## Verificar
 

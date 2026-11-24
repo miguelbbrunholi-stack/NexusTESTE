@@ -29,6 +29,7 @@ CREATE TABLE usuarios (
     data_nascimento DATE NULL,
 
     foto_perfil VARCHAR(255) NULL,
+    foto_perfil_binaria MEDIUMBLOB NULL,
 
     ativo BOOLEAN NOT NULL DEFAULT TRUE,
 
@@ -39,8 +40,7 @@ CREATE TABLE usuarios (
         ON UPDATE CURRENT_TIMESTAMP,
 
     CONSTRAINT uq_usuarios_email
-        UNIQUE (email),
-
+        UNIQUE (email)
 ) ENGINE=InnoDB;
 
 

@@ -1,4 +1,6 @@
 import { AreaTeclado, RolagemFormulario, CampoFormulario } from "../../componentes/LayoutFormulario";
+import AbasLista from '../../componentes/AbasLista';
+import Paginacao from '../../componentes/Paginacao';
 import React, { useCallback, useRef, useState } from 'react';
 import { FlatList, Modal, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
@@ -24,6 +26,17 @@ function moedaParaNumero(valor) {
   }
   return Number(texto);
 }
+const ABAS = ['Em andamento', 'Concluídas', 'Reta final'];
+const LIMITE = 5;
+
+function progresso(meta) {
+  return meta.objetivo > 0 ? Math.min(meta.atual / meta.objetivo * 100, 100) : 0;
+}
+
+function concluida(meta) {
+  return meta.status !== 'cancelada' && (meta.status === 'concluida' || progresso(meta) >= 100);
+}
+
 export default function Metas() {
   const {
     cores,
@@ -39,6 +52,10 @@ export default function Metas() {
   const [nomeMeta, setNomeMeta] = useState('');
   const [valorMeta, setValorMeta] = useState('');
   const [valorAtual, setValorAtual] = useState('');
+  const lista = useRef(null);
+  const [aba, setAba] = useState(ABAS[0]);
+  const [pagina, setPagina] = useState(1);
+  const [carregando, setCarregando] = useState(true);
   const [metas, setMetas] = useState([]);
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
@@ -50,6 +67,8 @@ export default function Metas() {
       setErro('');
     } catch (falha) {
       setErro(falha.message);
+    } finally {
+      setCarregando(false);
     }
   }, []);
   useFocusEffect(useCallback(() => {
@@ -134,15 +153,31 @@ export default function Metas() {
       setExcluindo(false);
     }
   }
+  const filtradas = metas.filter(meta => {
+    if (aba === ABAS[1]) return concluida(meta);
+    const emAndamento = meta.status !== 'cancelada' && !concluida(meta);
+    if (!emAndamento || aba !== ABAS[2]) return emAndamento;
+    const atualEmCentavos = Math.round(meta.atual * 100);
+    const objetivoEmCentavos = Math.round(meta.objetivo * 100);
+    return atualEmCentavos * 4 > objetivoEmCentavos * 3;
+  });
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / LIMITE));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+
+  function mudarPagina(destino) {
+    setPagina(destino);
+    lista.current?.scrollToOffset({ offset: 0, animated: false });
+  }
+
   function renderizarItem({
     item,
     index
   }) {
-    const porcentagem = item.objetivo > 0 ? Math.min(item.atual / item.objetivo * 100, 100) : 0;
-    const concluida = item.status === 'concluida' || porcentagem >= 100;
-    return <CartaoAnimado style={[estilos.cartao, concluida && estilos.cartaoConcluida]} atraso={80 + index * 60}>
+    const porcentagem = progresso(item);
+    const metaConcluida = concluida(item);
+    return <CartaoAnimado style={[estilos.cartao, metaConcluida && estilos.cartaoConcluida]} atraso={80 + index * 60}>
         <View style={estilos.cartaoCabecalho}>
-          <Icon name={concluida ? 'check-circle' : 'track-changes'} size={32} color={concluida ? cores.sucesso : cores.primaria} />
+          <Icon name={metaConcluida ? 'check-circle' : 'track-changes'} size={32} color={metaConcluida ? cores.sucesso : cores.primaria} />
           <Text style={estilos.nomeMeta}>{item.nome}</Text>
           <View style={estilos.acoesCartao}>
             <TouchableOpacity style={estilos.botaoAcao} onPress={() => abrirEdicao(item)} accessibilityLabel={`Editar meta ${item.nome}`}>
@@ -154,13 +189,13 @@ export default function Metas() {
           </View>
         </View>
 
-        {concluida ? <View style={estilos.concluidaSelo}>
+        {metaConcluida ? <View style={estilos.concluidaSelo}>
             <Icon name="check" size={17} color={cores.sucesso} />
             <Text style={estilos.concluidaTexto}>Meta concluída</Text>
           </View> : null}
 
         <View style={estilos.progressoFundo}>
-          <View style={[estilos.progressoFill, concluida && estilos.progressoFillConcluida, {
+          <View style={[estilos.progressoFill, metaConcluida && estilos.progressoFillConcluida, {
           width: `${porcentagem}%`
         }]} />
         </View>
@@ -168,17 +203,30 @@ export default function Metas() {
           <Text style={estilos.valor}>{formatarReais(item.atual)}</Text>
           <Text style={estilos.valor}>{formatarReais(item.objetivo)}</Text>
         </View>
-        <Text style={[estilos.statusMeta, concluida && estilos.statusConcluida]}>
-          {concluida ? 'Concluída' : item.status === 'cancelada' ? 'Cancelada' : 'Em andamento'}
+        <Text style={[estilos.statusMeta, metaConcluida && estilos.statusConcluida]}>
+          {metaConcluida ? 'Concluída' : item.status === 'cancelada' ? 'Cancelada' : 'Em andamento'}
         </Text>
-        <Text style={[estilos.porcentagem, concluida && estilos.porcentagemConcluida]}>
+        <Text style={[estilos.porcentagem, metaConcluida && estilos.porcentagemConcluida]}>
           {porcentagem.toFixed(0)}%
         </Text>
       </CartaoAnimado>;
   }
   return <TelaAnimada style={estilos.recipiente} atraso={60}>
       {erro && !modalVisivel ? <Text style={estilosCompartilhados.erroTexto}>{erro}</Text> : null}
-      <FlatList data={metas} contentContainerStyle={estilosCompartilhados.espacamentoInferior150} renderItem={renderizarItem} keyExtractor={item => item.id} showsVerticalScrollIndicator={false} ListEmptyComponent={<Text style={estilosCompartilhados.erroTexto}>Nenhuma meta cadastrada.</Text>} />
+      <AbasLista style={{ marginBottom: 20 }} opcoes={ABAS} selecionada={aba} aoSelecionar={opcao => {
+        setAba(opcao);
+        mudarPagina(1);
+      }} />
+      <FlatList
+        ref={lista}
+        data={filtradas.slice((paginaAtual - 1) * LIMITE, paginaAtual * LIMITE)}
+        contentContainerStyle={estilosCompartilhados.espacamentoInferior150}
+        renderItem={renderizarItem}
+        keyExtractor={item => String(item.id)}
+        showsVerticalScrollIndicator={false}
+        ListFooterComponent={<Paginacao pagina={paginaAtual} total={totalPaginas} aoMudar={mudarPagina} />}
+        ListEmptyComponent={!carregando && !erro ? <Text style={{ color: cores.textoSecundario, textAlign: 'center', paddingVertical: 18 }}>Nenhuma meta nesta aba.</Text> : null}
+      />
       <TouchableOpacity style={estilos.botaoAdicionar} onPress={abrirNovaMeta}>
         <Icon name="add" size={25} color={cores.sobrePrimaria} />
         <Text style={estilos.botaoTexto}>Adicionar Meta</Text>
@@ -194,11 +242,11 @@ export default function Metas() {
               <CampoFormulario accessibilityLabel="Valor já guardado" style={estilos.campo} placeholder="Quanto você já guardou?" placeholderTextColor={cores.textoIndicativo} keyboardType="decimal-pad" value={valorAtual} onChangeText={setValorAtual} mask="currency" />
               {erro ? <Text style={estilosCompartilhados.erroTexto}>{erro}</Text> : null}
               <View style={estilos.modalBotoes}>
-                <TouchableOpacity style={estilos.cancelar} onPress={fecharModal} disabled={salvando}>
-                  <Text style={estilos.cancelarTexto}>Cancelar</Text>
+                <TouchableOpacity style={estilos.salvar} onPress={fecharModal} disabled={salvando}>
+                  <Text style={estilos.salvarTexto}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={estilos.salvar} onPress={salvarMeta} disabled={salvando}>
-                  <Text style={estilos.salvarTexto}>
+                <TouchableOpacity style={estilos.cancelar} onPress={salvarMeta} disabled={salvando}>
+                  <Text style={estilos.cancelarTexto}>
                     {salvando ? 'Salvando...' : modoEdicao ? 'Salvar alterações' : 'Criar meta'}
                   </Text>
                 </TouchableOpacity>
@@ -219,11 +267,11 @@ export default function Metas() {
               A meta “{metaParaExcluir?.nome}” e seu histórico serão removidos.
             </Text>
             <View style={estilos.modalBotoes}>
-              <TouchableOpacity style={estilos.excluir} onPress={() => setMetaParaExcluir(null)} disabled={excluindo}>
-                <Text style={estilos.cancelarTexto}>Cancelar</Text>
+              <TouchableOpacity style={estilos.salvar} onPress={() => setMetaParaExcluir(null)} disabled={excluindo}>
+                <Text style={estilos.salvarTexto}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={estilos.cancelar} onPress={excluirMeta} disabled={excluindo}>
-                <Text style={estilos.excluirTexto}>{excluindo ? 'Excluindo...' : 'Excluir'}</Text>
+                <Text style={[estilos.cancelarTexto, { color: cores.perigo }]}>{excluindo ? 'Excluindo...' : 'Excluir'}</Text>
               </TouchableOpacity>
             </View>
           </CartaoAnimado>
