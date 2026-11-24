@@ -1,50 +1,28 @@
-# Welcome to your Expo app 👋
+# Nexus Finance — aplicativo
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicativo Expo com React Native e Expo Router.
 
-## Get started
+## Executar
 
-1. Install dependencies
+1. Instale as dependências com `npm install`.
+2. Configure `EXPO_PUBLIC_API_URL` no arquivo `.env`, se precisar de outra URL de API. Há um exemplo em `.env.example`.
+3. Execute `npm run navegador` para web ou `npm run iniciar` para abrir o Expo.
+4. Mantenha o backend em execução em outro terminal.
 
-   ```bash
-   npm install
-   ```
+## Pastas
 
-2. Start the app
+- `src/app/`: telas e layouts de navegação; os nomes das rotas foram preservados.
+- `src/componentes/`: componentes compartilhados, incluindo animações e navegação.
+- `src/contextos/`: sessão e tema.
+- `src/ganchos/`: hooks do aplicativo.
+- `src/servicos/`: chamadas de API, sessão, arquivos, relatórios e validações.
+- `src/style/style.js`: estilos compartilhados das telas.
+- `src/tema/`: paletas de cores.
+- `assets/`: imagens e demais recursos estáticos.
 
-   ```bash
-   npx expo start
-   ```
+O alias `@/` aponta para `src/`. A documentação detalhada fica em [docs](../docs/ESTRUTURA_PROJETO.md).
 
-In the output, you'll find options to open the app in a
+## Verificar
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- `npm run verificar`: ESLint.
+- `npm run compilar`: exportação web para `dist/`.

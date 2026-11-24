@@ -1,0 +1,72 @@
+import cors from 'cors';
+import express, { NextFunction, Request, Response } from 'express';
+import { rotasAutenticacao } from "./rotas/autenticacao.rotas";
+import { rotasDados } from "./rotas/dados.rotas";
+import multer from 'multer';
+import { ErroApi } from "./middlewares/erros";
+import { configuracao } from './config/configuracao';
+const aplicativo = express();
+export { aplicativo };
+aplicativo.disable('x-powered-by');
+aplicativo.use(cors({
+  origin(origem, callback) {
+    if (!origem || configuracao.cors.includes(origem)) return callback(null, true);
+    callback(new ErroApi(403, 'Origem não autorizada.'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Authorization', 'Content-Type'],
+  maxAge: 86400
+}));
+aplicativo.use((_requisicao, resposta, proximo) => {
+  resposta.setHeader('X-Content-Type-Options', 'nosniff');
+  resposta.setHeader('Referrer-Policy', 'no-referrer');
+  resposta.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  resposta.setHeader('Cache-Control', 'no-store');
+  if (process.env.NODE_ENV === 'production') resposta.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  proximo();
+});
+aplicativo.use(express.json({ limit: '100kb' }));
+aplicativo.get('/', (_requisicao, resposta) => {
+  resposta.json({
+    mensagem: 'API Nexus Finance funcionando.'
+  });
+});
+aplicativo.use('/auth', rotasAutenticacao);
+aplicativo.use(rotasDados);
+aplicativo.use((_requisicao, resposta) => {
+  resposta.status(404).json({
+    mensagem: 'Rota não encontrada.'
+  });
+});
+aplicativo.use((falha: Error, _requisicao: Request, resposta: Response, _proximo: NextFunction) => {
+  if (falha instanceof ErroApi) {
+    resposta.status(falha.status).json({
+      mensagem: falha.message
+    });
+    return;
+  }
+  if (falha instanceof multer.MulterError) {
+    resposta.status(400).json({
+      mensagem: falha.code === 'LIMIT_FILE_SIZE' ? 'O arquivo deve ter no máximo 10 MB.' : 'Envie apenas um arquivo e confira os dados do formulário.'
+    });
+    return;
+  }
+  if ((falha as {
+    type?: string;
+  }).type === 'entity.parse.failed') {
+    resposta.status(400).json({
+      mensagem: 'Dados da requisição inválidos.'
+    });
+    return;
+  }
+  if ((falha as { code?: string }).code === 'ER_DUP_ENTRY') {
+    resposta.status(409).json({
+      mensagem: 'Já existe um cadastro com esses dados.'
+    });
+    return;
+  }
+  console.error(falha);
+  resposta.status(500).json({
+    mensagem: 'Erro interno do servidor.'
+  });
+});

@@ -1,9 +1,0 @@
-.git/
-backend/.venv/
-backend/.env
-NexusFinance/node_modules/
-NexusFinance/.expo/
-NexusFinance/dist/
-NexusFinance/web-build/
-**/__pycache__/
-**/*.pyc

@@ -1,96 +1,75 @@
-# API Nexus Finance
+# Backend do Nexus Finance
 
-Python 3.12, FastAPI, SQLAlchemy e migrações Alembic. O esquema segue as 17 tabelas do SQL fornecido, mantendo nomes, relacionamentos e valores monetários decimais. Foram acrescentadas tabelas de sessões, controle de tentativas e ocorrências de recorrências.
+API simples em TypeScript para cadastro, login, sessão e recuperação de senha.
 
-## Configuração
+## Como executar
 
-Siga o README da raiz para executar com MySQL. É possível experimentar localmente com SQLite, definindo `DATABASE_URL=sqlite:///./nexus-dev.db` no .env e executando `python -m nexus.cli init-db`. SQLite é uma alternativa de desenvolvimento; a validação concorrente foi feita em MariaDB.
+1. Inicie o MySQL (no XAMPP, use **Start** no módulo MySQL). Apenas na primeira instalação, importe `../bancoDados/estrutura.sql`: esse arquivo apaga e recria o banco, portanto não o execute sobre dados que deseja preservar.
+2. Crie `.env` e configure `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`, `RECOVERY_TOKEN_SECRET`, `EMAIL_USER` e `EMAIL_PASSWORD`. Em produção, `JWT_SECRET` e `RECOVERY_TOKEN_SECRET` precisam ter ao menos 32 caracteres, `APP_ORIGINS` deve listar as origens web permitidas separadas por vírgula e `DB_SSL=true` ativa TLS com validação de certificado para o banco.
+3. Dentro desta pasta, execute `npm install`, `npm run migrate` e depois `npm run dev`. A migração adiciona o controle de recorrências sem apagar dados; também pode ser executada como `npm run build` seguido de `node dist/bancoDados/migrar.js`.
 
-Execute comandos desta documentação dentro da pasta backend e com o Python da .venv. No Windows, use `.\.venv\Scripts\python.exe` no lugar de `python`.
+A API ficará disponível em `http://localhost:3000`.
 
-Variáveis em .env:
-
-| Variável | Uso |
-|---|---|
-| DATABASE_URL | Conexão MySQL/MariaDB ou SQLite de desenvolvimento |
-| ENVIRONMENT | development ou production; production rejeita SQLite |
-| CORS_ORIGINS | Lista JSON dos endereços web autorizados, com porta |
-| STORAGE_DIR | Pasta privada de anexos, relatórios e mensagens de desenvolvimento |
-| TIME_ZONE | Datas financeiras; padrão America/Sao_Paulo |
-| SESSION_DAYS | Duração de uma sessão; padrão 7 |
-| SMTP_HOST, SMTP_PORT | Servidor de envio de e-mails |
-| SMTP_USER, SMTP_PASSWORD | Credenciais do servidor de e-mail |
-| SMTP_FROM, SMTP_STARTTLS | Remetente e uso de STARTTLS |
-
-Em desenvolvimento sem SMTP, a recuperação de senha grava uma mensagem .eml em `storage/outbox`, no servidor. Copie o código dessa mensagem para a tela de recuperação. O código não é exposto pela API. Para envio real, configure SMTP. Em produção, configure HTTPS no proxy, credenciais próprias e origens CORS correspondentes ao aplicativo.
-
-`requirements.lock` registra as versões usadas na validação; use como constraints com `-c requirements.lock`. O arquivo inclui dependências de teste, mas instalar apenas `requirements.txt` não instala as ferramentas de teste.
-
-## Banco e migrações
-
-```powershell
-python -m nexus.cli init-db
-```
-
-O comando aplica migrações incrementais e sementes idempotentes. Ele pode adotar o esquema original já criado e não apaga dados. `database/original.sql` é a cópia de referência do arquivo enviado, não o inicializador da aplicação. Faça backup do banco antes de migrar uma instalação existente.
-
-Senhas novas usam Argon2. Um cadastro antigo com outro formato de senha precisa usar recuperação de senha. Sessões e códigos de recuperação são armazenados como hashes; códigos são temporários e de uso único. O servidor valida propriedade dos recursos em cada operação.
-
-Valores monetários saem da API como strings decimais, evitando arredondamento binário. Transações pendentes/canceladas não entram no saldo confirmado. O saldo da conta inclui seu saldo inicial. Aportes em metas são registros próprios e não criam automaticamente uma despesa na conta.
-
-Retiradas de metas bloqueiam a linha da meta e consultam o saldo com isolamento READ COMMITTED em MySQL/MariaDB, evitando gasto duplicado por solicitações simultâneas. Datas financeiras seguem o fuso configurado; sessões usam UTC.
-
-As recorrências preservam o dia de origem, ajustam fim de mês/ano bissexto e não repetem a mesma ocorrência. O worker processa até 500 ocorrências por usuário em cada rodada e continua nas próximas. Para execução pontual:
-
-```powershell
-python -m nexus.cli recorrencias
-```
+O backend precisa continuar aberto em um terminal enquanto o aplicativo Expo estiver sendo usado em outro terminal. Para celular físico, copie `../NexusFinance/.env.example` para `../NexusFinance/.env` e troque o IP de exemplo pelo IPv4 do computador.
 
 ## Rotas
 
-Documentação completa dos campos e respostas em `/docs`; esquema em `/openapi.json`. As rotas de negócio têm prefixo `/api/v1`.
+- `POST /auth/cadastro` — recebe `nome`, `email`, `senha` e `confirmarSenha`; `dataNascimento` é opcional.
+- `POST /auth/login` — recebe `email` e `senha` e devolve o token JWT.
+- `GET /auth/sessao` — recebe o header `Authorization: Bearer TOKEN`.
+- `POST /auth/logout` — confirma o logout; o aplicativo deve apagar o token armazenado.
+- `POST /auth/recuperar-senha` — recebe `email` e envia um código de 6 dígitos.
+- `POST /auth/validar-codigo` — recebe `email` e `codigo`.
+- `POST /auth/nova-senha` — recebe `email`, `codigo`, `senha` e `confirmarSenha`.
+- `GET /financeiro/resumo` — totais do mês, mês anterior, categorias, histórico e meta ativa.
+- `GET /financeiro/transacoes` — lista as transações do usuário autenticado.
+- `POST /financeiro/transacoes` — salva receita ou despesa, o tipo de conta, a categoria e um anexo opcional.
+- `PATCH /financeiro/transacoes/:id/confirmar` — confirma uma pendência do usuário com data até hoje. Repetir a confirmação não duplica valores; futuras e canceladas retornam 409.
+- `GET /financeiro/opcoes?tipo=Receita` (ou `Despesa`) — categorias padrão e pessoais, e tipos de conta do banco.
+- `POST /financeiro/categorias` — recebe `tipo` e `nome`; cria uma categoria do usuário ou reutiliza uma já existente.
+- `GET /financeiro/anexos/:id` — baixa um anexo somente para o dono da transação.
+- `GET/PUT /configuracoes` — consulta/salva `{ "notificacoes": true }`; controla novos avisos financeiros dentro do app.
+- `GET/POST /metas` — consulta e cria metas.
+- `GET /notificacoes` — consulta as notificações reais do usuário.
+- `GET/PUT /usuarios/me` — consulta e atualiza o cadastro do usuário.
+- `GET/POST /privacidade/solicitacoes` — consulta e registra pedidos de acesso, exportação, correção ou eliminação. A equipe responsável deve avaliar e concluir cada pedido.
 
-| Grupo | Recursos |
-|---|---|
-| auth | Cadastro, login, logout, código de recuperação e redefinição |
-| usuarios/me | Dados, senha, desativação e avatar |
-| enderecos / configuracoes | Endereço e preferências |
-| catalogos / contas / categorias | Tipos e cadastros financeiros |
-| transacoes | Receitas, despesas, filtros e anexos privados |
-| metas | Metas e movimentações |
-| recorrencias | Regras e processamento de vencimentos |
-| notificacoes | Listagem e marcação de leitura |
-| resumo | Saldos, categorias e série mensal |
-| relatorios | Geração e download PDF, CSV e XLSX |
-| backup | ZIP dos dados e anexos do usuário autenticado |
+Todas as rotas após as rotas de autenticação exigem o header `Authorization: Bearer TOKEN`.
 
-Use `Authorization: Bearer TOKEN` após login. Relatórios, backups e anexos exigem autenticação. Anexos aceitam PDF/PNG/JPEG até 10 MB; avatar aceita PNG/JPEG até 5 MB. Recuperação de senha e login têm limitação de tentativas persistida.
+## Recuperação de senha
 
-O backup exportado pelo aplicativo é por usuário. Para recuperar toda a instalação, faça também backup administrativo do MySQL e da pasta `storage`.
+O código é enviado por SMTP, expira em 15 minutos e é armazenado como HMAC.
 
-## Docker opcional
+## Sessão no aplicativo
 
-Configure .env e preencha MYSQL_PASSWORD e MYSQL_ROOT_PASSWORD com senhas diferentes. Para este compose, use senhas longas com letras, números, hífen e sublinhado para evitar caracteres reservados na URL.
+O aplicativo já salva o `token` retornado usando `expo-secure-store` no Android/iOS. Ao abrir o app, ele chama `GET /auth/sessao`; no logout, apaga o token do aparelho.
 
-```powershell
-docker compose up --build -d
-```
+## Contas, categorias e arquivos
 
-O compose sobe MySQL 8.4, aplica as migrações e inicia API e worker. Banco e arquivos usam volumes persistentes. Se a porta 3306 estiver ocupada, ajuste o mapeamento no compose. O Dockerfile e o compose foram preparados, mas não executados neste ambiente.
+O cadastro da transação recebe `tipo`, `valor`, `descricao`, `data`, `categoriaId`, `tipoContaId`, `recorrente`, `parcelas` (opcional, de 1 a 60), `status` e `observacao`. Em transações parceladas, `valor` é o total, dividido em lançamentos mensais; cada parcela fica identificada no fluxo financeiro. Parcelamento e recorrência fixa são opções mutuamente exclusivas. Sem arquivo, use JSON. Com arquivo, use multipart/form-data com o campo `arquivo`; o cliente deve deixar o fetch definir o boundary. Aceita um arquivo não vazio de até 10 MiB. O tipo de conta escolhido usa uma conta ativa desse tipo do usuário, criando-a quando necessário.
 
-## Testes
+As categorias personalizadas ficam no MySQL e aparecem apenas para seu dono e para o tipo de transação escolhido. Os arquivos ficam em `backend/uploads/transacoes` (ou em `UPLOAD_DIR`), com os metadados em `anexos_transacao`. São aceitos somente PDF, PNG e JPEG de até 10 MiB, com a assinatura do arquivo validada e SHA-256 registrado. Mantenha o diretório fora de uma área pública, com permissões restritas, criptografia e rotina de varredura antimalware. Para bancos existentes, execute `npm run migrate` antes de iniciar a API.
 
-```powershell
-python -m pip install -r requirements-dev.txt -c requirements.lock
-python -m pytest -q
-python -m ruff check nexus migrations tests
-```
+## Privacidade e produção
 
-Por padrão, os testes usam bancos SQLite temporários. Os testes MySQL ficam desabilitados sem TEST_MYSQL_URL. Para a suíte com MySQL/MariaDB, use um servidor de teste isolado em localhost:3308 e um usuário autorizado a criar bancos temporários:
+O sistema registra solicitações de direitos do titular, mas isso não executa exclusões automaticamente. Antes de concluir uma solicitação, valide a identidade, verifique obrigações de retenção, remova também anexos e defina a resposta ao titular. Publique um aviso de privacidade e mantenha processo de incidentes, inventário de tratamentos, prazos de retenção e contratos com fornecedores. Essas medidas organizacionais são necessárias: mudanças técnicas, isoladamente, não tornam o serviço plenamente conforme à LGPD.
 
-```powershell
-$env:TEST_MYSQL_URL='mysql+pymysql://USUARIO:SENHA@127.0.0.1:3308/mysql'
-python -m pytest -q
-```
+## Regras financeiras
 
-A suíte cria bancos com nomes aleatórios prefixados nexus_test_ e remove apenas esses bancos ao terminar. Não use credenciais de produção.
+- `saldoTotal`: saldo inicial de todas as contas mais receitas menos despesas confirmadas com data até hoje, incluindo meses anteriores. Contas inativas preservam seu histórico no patrimônio total.
+- `saldoReservadoMetas`: saldo líquido das movimentações de todas as metas que não foram canceladas; valores inconsistentes negativos por meta são limitados a zero.
+- `saldoDisponivel`: saldo total menos valores reservados nas metas. Esse cálculo é feito no backend para que todas as telas apresentem o mesmo valor.
+- `atual` e `anterior`: receitas, despesas e resultado **realizados** de cada mês. O mês atual vai até hoje; a comparação usa o mês anterior completo. `saldo` nesses objetos é o resultado mensal, não o saldo disponível.
+- `previsao`: todos os lançamentos não cancelados do mês, realizados e a realizar. `saldoPrevisto`: saldo disponível (após metas reservadas) mais pendências (inclusive atrasadas) e lançamentos futuros até o fim do mês. Valores posteriores ao mês ficam fora dessa previsão.
+- Categorias e os seis meses de histórico consideram apenas confirmados até hoje; meses vazios têm zero. Resultado anterior zero retorna percentual `null`, exibido como “Sem base de comparação”.
+- Datas financeiras seguem `CURDATE()` do MySQL; configure o fuso do banco para o calendário usado pelo negócio.
+- Valores monetários aceitam no máximo duas casas, tanto em JSON numérico quanto em texto. Excesso de precisão é rejeitado com HTTP 400; diferenças são calculadas em centavos.
+- Metas só recebem receitas confirmadas, com data até hoje. O valor inicial já igual ou superior ao objetivo cria a meta concluída. A descrição do aporte preserva os 255 caracteres da transação sem acrescentar prefixo.
+- Recorrências mensais são processadas na inicialização, a cada hora e antes das consultas de resumo/transações. O processo recupera meses atrasados e gera até o fim do mês atual, respeitando `ativa` e `data_fim`. Os novos lançamentos são pendentes e não repetem aportes em metas nem anexos. Dias 29–31 são ajustados ao último dia de meses curtos, preservando o dia original nos demais meses.
+- O cursor `ultima_geracao` e as inserções são gravados na mesma transação com bloqueio da regra, evitando duplicação em tentativas repetidas e processos concorrentes. Execute a migração antes de iniciar esta versão em um banco existente.
+
+## Verificar a compilação
+
+`npm run build` verifica e compila o TypeScript.
+
+Se aparecer `ECONNREFUSED` na porta 3306, confirme que o MySQL está iniciado e que `DB_HOST`/`DB_PORT` correspondem ao serviço em execução.
